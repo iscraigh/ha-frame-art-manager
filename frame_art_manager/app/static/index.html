@@ -2696,16 +2696,38 @@ applySettings(loadSettings());
   }
 
   syncBtn.addEventListener('click', async () => {
-    if (FAM_ADDON && state.tv && state.tv.connected) {
+    if (FAM_ADDON) {
+      // The TV serves one art client at a time. Stand aside: the add-on then
+      // syncs as the only client (the same path that works from a PC), and the
+      // page reconnects afterwards.
       const origText = syncBtn.textContent;
       syncBtn.disabled = true;
       syncBtn.textContent = '⏳ Pulling thumbnails...';
+      const wasConnected = !!(state.tv && state.tv.connected);
       try {
-        const done = await syncViaPage();
-        if (!done) alert('No thumbnails were returned by the TV.');
+        if (wasConnected) {
+          try { state.tv.disconnect(); } catch (e) {}
+          await new Promise(r => setTimeout(r, 2000));
+        }
+        const ip = findTvIp();
+        const res = await fetch(THUMB_BASE + 'sync?ip=' + encodeURIComponent(ip));
+        const data = await res.json();
+        if (data.thumbs && Object.keys(data.thumbs).length > 0) {
+          for (const [cid, dataUrl] of Object.entries(data.thumbs)) setThumb(cid, dataUrl);
+          decorateAllIds();
+          syncBtn.textContent = '✔ ' + data.count + ' thumbnails';
+        } else {
+          syncBtn.textContent = '⚠ 0 thumbnails';
+          alert((data.error || 'The sync returned no thumbnails.') + '\n\n' +
+            String(data.log || '').slice(0, 600));
+        }
       } catch (err) {
+        syncBtn.textContent = origText;
         alert('Thumbnail sync failed: ' + (err && err.message ? err.message : err));
       } finally {
+        if (wasConnected) {
+          try { await state.tv.connect(); } catch (e) {}
+        }
         setTimeout(() => {
           syncBtn.disabled = false;
           syncBtn.textContent = origText;

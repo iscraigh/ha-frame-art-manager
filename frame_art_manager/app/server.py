@@ -46,6 +46,9 @@ INGRESS_PREFIX = re.compile(r"^/api/hassio_ingress/[^/]+")
 CLIENT_NAME = base64.b64encode(b"FrameArtManager").decode()
 MAX_UPLOAD = 64 * 1024 * 1024
 SYNC_TIMEOUT = 120
+# Live /tv sockets. A sync runs with none of them attached: the TV's art app
+# serves one client at a time, so the page steps aside while the add-on fetches.
+PROXY_CLIENTS: set[web.WebSocketResponse] = set()
 
 log = logging.getLogger("frame_art_manager")
 
@@ -146,6 +149,7 @@ def _capture_token(payload: str) -> None:
 async def handle_tv(request: web.Request) -> web.WebSocketResponse:
     client = web.WebSocketResponse(heartbeat=30, max_msg_size=MAX_UPLOAD)
     await client.prepare(request)
+    PROXY_CLIENTS.add(client)
 
     async with ClientSession() as session:
         try:
@@ -187,6 +191,7 @@ async def handle_tv(request: web.Request) -> web.WebSocketResponse:
 
         await asyncio.gather(browser_to_tv(), tv_to_browser(), return_exceptions=True)
 
+    PROXY_CLIENTS.discard(client)
     return client
 
 
@@ -432,6 +437,19 @@ async def serve_thumbs(_request: web.Request) -> web.Response:
 async def handle_sync(request: web.Request) -> web.Response:
     try:
         host = tv_host(request.query.get("ip", ""))
+        if PROXY_CLIENTS:
+            log.info(
+                "Thumbnail sync: releasing %s page art connection(s) so the TV "
+                "serves this one client",
+                len(PROXY_CLIENTS),
+            )
+            for client in list(PROXY_CLIENTS):
+                try:
+                    await client.close()
+                except Exception:  # noqa: BLE001 - best effort
+                    pass
+            PROXY_CLIENTS.clear()
+            await asyncio.sleep(2)
         log.info("Thumbnail sync requested for %s", host)
         result = await asyncio.wait_for(
             asyncio.to_thread(sync_thumbs, host), timeout=SYNC_TIMEOUT

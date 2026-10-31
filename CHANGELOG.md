@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.9] — 2026-10-31
+
+### Changed
+
+- Thumbnail sync in the add-on now runs **exclusively**: the page disconnects,
+  the add-on closes any remaining art sockets, waits 2 s, runs `samsungtvws`
+  against the TV as the only art client, then the page reconnects. This is the
+  same shape as the standalone setup that works from a PC (one process talking
+  to the TV), chosen because the TV answers `get_content_list` on a shared
+  connection but ignores `get_thumbnail` there.
+- `samsungtvws` still fetches per item (`get_thumbnail`), never the batch
+  `get_thumbnail_list` that this firmware rejects with error -1.
+
 ## [1.0.8] — 2026-10-31
 
 ### Changed
@@ -152,6 +165,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.9]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.9
 [1.0.8]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.8
 [1.0.7]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.7
 [1.0.6]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.6
