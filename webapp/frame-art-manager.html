@@ -1587,6 +1587,22 @@ class FrameTVArt {
     return this._waitForAny(['content_list', reqId]);
   }
 
+  async getThumbnail(contentId) {
+    // The TV serves one art client at a time, so thumbnails are requested on
+    // this connection. The reply carries conn_info for the raw TCP transfer,
+    // which the add-on performs (a browser cannot open that socket).
+    const reqId = (globalThis.crypto?.randomUUID?.() || `th_${Date.now()}_${Math.floor(Math.random() * 1e6)}`);
+    const connId = Math.floor(Math.random() * 4 * 1024 * 1024 * 1024);
+    this._emit({
+      request: 'get_thumbnail',
+      id: reqId,
+      request_id: reqId,
+      content_id: contentId,
+      conn_info: { d2d_mode: 'socket', connection_id: connId, id: reqId },
+    });
+    return this._waitForAny([reqId, 'get_thumbnail'], 15000);
+  }
+
   async getSamsungList() {
     const reqId = (globalThis.crypto?.randomUUID?.() || `cl_${Date.now()}_${Math.floor(Math.random() * 1e6)}`);
     this._emit({ request: 'get_content_list', id: reqId, request_id: reqId, category_id: 'SAM-C0002' });
@@ -2594,7 +2610,58 @@ applySettings(loadSettings());
     return localStorage.getItem('fam_last_ip') || '';
   }
 
+  async function syncViaPage() {
+    const list = await state.tv.getContentList();
+    const items = typeof list?.content_list === 'string'
+      ? (JSON.parse(list.content_list) || [])
+      : (list?.content_list || []);
+    const ids = items.map(i => i.content_id).filter(c => c && String(c).startsWith('MY'));
+    let done = 0;
+    let failed = 0;
+    for (const cid of ids) {
+      syncBtn.textContent = `⏳ ${done + failed}/${ids.length}`;
+      try {
+        const r = await state.tv.getThumbnail(cid);
+        let info = r?.conn_info;
+        if (typeof info === 'string') info = JSON.parse(info);
+        if (!info) { failed++; continue; }
+        const resp = await fetch(THUMB_BASE + 'thumb', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(info),
+        });
+        const data = await resp.json();
+        if (data.dataUrl) { setThumb(cid, data.dataUrl); done++; }
+        else { failed++; console.warn('thumbnail fetch failed', cid, data.error); }
+      } catch (e) {
+        failed++;
+        console.warn('thumbnail failed', cid, e);
+      }
+    }
+    decorateAllIds();
+    syncBtn.textContent = `✔ ${done} thumbnails` + (failed ? ` · ${failed} failed` : '');
+    return done;
+  }
+
   syncBtn.addEventListener('click', async () => {
+    if (FAM_ADDON && state.tv && state.tv.connected) {
+      const origText = syncBtn.textContent;
+      syncBtn.disabled = true;
+      syncBtn.textContent = '⏳ Pulling thumbnails...';
+      try {
+        const done = await syncViaPage();
+        if (!done) alert('No thumbnails were returned by the TV.');
+      } catch (err) {
+        alert('Thumbnail sync failed: ' + (err && err.message ? err.message : err));
+      } finally {
+        setTimeout(() => {
+          syncBtn.disabled = false;
+          syncBtn.textContent = origText;
+        }, 4000);
+      }
+      return;
+    }
+
     let ip = findTvIp();
     if (!ip) {
       ip = prompt('Enter your Frame TV IP Address:', '192.168.1.');

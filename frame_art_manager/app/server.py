@@ -316,6 +316,77 @@ def show_on_tv(host: str, content_id: str) -> str:
     return cid
 
 
+# ── Thumbnail byte fetch (over the conn_info the page received) ──────────
+
+
+def fetch_thumbnail_bytes(host: str, port: int, secured: bool) -> bytes:
+    """Read one thumbnail file from the TV's d2d socket.
+
+    The page asks the TV for a thumbnail on its own art connection; the TV
+    answers with a conn_info pointing at a short-lived TCP port. The browser
+    cannot open that socket, so it posts conn_info here and this reads it.
+    Protocol: 4-byte big-endian header length, JSON header, fileLength bytes.
+    """
+    import socket
+
+    sock = socket.create_connection((host, port), timeout=15)
+    try:
+        if secured:
+            sock = insecure_ssl().wrap_socket(sock, server_hostname=host)
+        header_len = int.from_bytes(sock.recv(4), "big")
+        if header_len <= 0 or header_len > 65536:
+            raise RuntimeError(f"implausible thumbnail header length {header_len}")
+        header = bytearray()
+        while len(header) < header_len:
+            chunk = sock.recv(header_len - len(header))
+            if not chunk:
+                raise RuntimeError("TV closed the socket while sending the header")
+            header.extend(chunk)
+        meta = json.loads(header.decode("utf-8"))
+        total = int(meta["fileLength"])
+        if total <= 0 or total > 16 * 1024 * 1024:
+            raise RuntimeError(f"implausible thumbnail size {total}")
+        data = bytearray()
+        while len(data) < total:
+            chunk = sock.recv(min(65536, total - len(data)))
+            if not chunk:
+                raise RuntimeError("TV closed the socket while sending the image")
+            data.extend(chunk)
+        return bytes(data)
+    finally:
+        sock.close()
+
+
+def thumbnail_data_url(raw: bytes) -> str:
+    import base64 as b64
+    import io
+
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(raw)).convert("RGB")
+    img.thumbnail((320, 180))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=80)
+    return "data:image/jpeg;base64," + b64.b64encode(buf.getvalue()).decode("ascii")
+
+
+async def handle_thumb(request: web.Request) -> web.Response:
+    try:
+        info = await request.json()
+        host = tv_host(str(info.get("ip") or ""))
+        port = int(info.get("port") or 0)
+        if not port:
+            raise RuntimeError("no port in conn_info")
+        secured = bool(info.get("secured", False))
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(fetch_thumbnail_bytes, host, port, secured), timeout=30
+        )
+        return web.json_response({"ok": True, "dataUrl": thumbnail_data_url(raw)})
+    except Exception as ex:  # noqa: BLE001 - the page shows the message
+        log.warning("Thumbnail fetch failed: %s", ex)
+        return web.json_response({"ok": False, "error": str(ex)}, status=502)
+
+
 # ── HTTP ─────────────────────────────────────────────────────────────────
 
 
@@ -417,6 +488,8 @@ async def handle(request: web.Request) -> web.StreamResponse:
         return await serve_thumbs(request)
     if segment == "sync":
         return await handle_sync(request)
+    if segment == "thumb" and request.method == "POST":
+        return await handle_thumb(request)
     if segment == "show":
         return await handle_show(request)
     if segment == "health":

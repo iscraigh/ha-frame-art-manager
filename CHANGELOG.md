@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.4] — 2026-10-31
+
+### Fixed
+
+- Thumbnail sync hung (then timed out) because the TV serves **one art client at
+  a time**: the add-on's own samsungtvws connection connected but never received
+  replies while the page held the art channel.
+- Thumbnails are now requested over the page's existing art connection:
+  `get_thumbnail` returns `conn_info`, the page posts it to the new `POST /thumb`
+  endpoint, and the add-on performs the raw TCP read the browser cannot.
+  Progress is shown on the button (`⏳ 12/67`), and failures are counted.
+- `POST /thumb` reads the TV's 4-byte-length + JSON-header + file frame with
+  bounds checks, converts to a 320×180 JPEG data URL, and never returns more
+  than 16 MB.
+
 ## [1.0.3] — 2026-10-31
 
 ### Fixed
@@ -91,6 +106,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.4]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.4
 [1.0.3]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.3
 [1.0.2]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.2
 [1.0.1]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.1

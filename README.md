@@ -127,7 +127,8 @@ Workflow, versioning and release steps: [CONTRIBUTING.md](CONTRIBUTING.md).
 | `/` | the application (served through HA Ingress) |
 | `WS /tv` | proxy to `wss://TV:8002/api/v2/channels/com.samsung.art-app` |
 | `WS /upload` | raw TCP image-frame relay (replaces `relay.py`) |
-| `/sync?ip=` | download thumbnails into `/data/thumbs_cache.js` |
+| `POST /thumb` | read one thumbnail's bytes from the TV's d2d socket |
+| `/sync?ip=` | server-side thumbnail sync (standalone-style, needs the art channel free) |
 | `/show?id=` | display one artwork on the TV |
 | `/health` | `tv_ip_configured`, `art_token`, `thumbs_cache` |
 
