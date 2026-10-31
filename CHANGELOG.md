@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.7] — 2026-10-31
+
+### Fixed
+
+- `get_thumbnail` was silently ignored by the TV because `conn_info.id` was an
+  arbitrary string. It is now a UUID (as `samsungtvws` sends) and the request id
+  is a UUID too. Debug logs showed the request leaving and no reply arriving;
+  this firmware validates the id shape before opening the d2d socket.
+
 ## [1.0.6] — 2026-10-31
 
 ### Added
@@ -133,6 +142,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.7]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.7
 [1.0.6]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.6
 [1.0.5]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.5
 [1.0.4]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.4

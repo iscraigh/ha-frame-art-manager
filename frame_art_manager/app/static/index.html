@@ -1596,14 +1596,25 @@ class FrameTVArt {
     // The TV serves one art client at a time, so thumbnails are requested on
     // this connection. The reply carries conn_info for the raw TCP transfer,
     // which the add-on performs (a browser cannot open that socket).
-    const reqId = (globalThis.crypto?.randomUUID?.() || `th_${Date.now()}_${Math.floor(Math.random() * 1e6)}`);
-    const connId = Math.floor(Math.random() * 4 * 1024 * 1024 * 1024);
+    // conn_info.id must be a UUID: this firmware silently ignores the request
+    // when it is an arbitrary string (samsungtvws sends uuid4 there too).
+    const uid = () => (globalThis.crypto?.randomUUID?.() ||
+      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      }));
+    const reqId = uid();
+    const connId = uid();
     this._emit({
       request: 'get_thumbnail',
       id: reqId,
       request_id: reqId,
       content_id: contentId,
-      conn_info: { d2d_mode: 'socket', connection_id: connId, id: reqId },
+      conn_info: {
+        d2d_mode: 'socket',
+        connection_id: Math.floor(Math.random() * 4 * 1024 * 1024 * 1024),
+        id: connId,
+      },
     });
     return this._waitForAny([reqId, 'get_thumbnail'], 15000);
   }
