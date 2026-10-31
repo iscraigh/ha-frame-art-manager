@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.6] — 2026-10-31
+
+### Added
+
+- `log_level: debug` now records the art traffic in both directions
+  (`browser->TV` / `TV->browser`, truncated to 400 characters), so a request the
+  TV never answers is visible in the add-on log.
+- The first thumbnail failure on the page is reported to `/thumb-debug` with its
+  error message, so a timeout or TV error lands in the add-on log without
+  needing the browser console.
+
 ## [1.0.5] — 2026-10-31
 
 ### Added
@@ -122,6 +133,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.6]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.6
 [1.0.5]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.5
 [1.0.4]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.4
 [1.0.3]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.3

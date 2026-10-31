@@ -161,6 +161,8 @@ async def handle_tv(request: web.Request) -> web.WebSocketResponse:
         async def browser_to_tv() -> None:
             async for msg in client:
                 if msg.type == WSMsgType.TEXT:
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug("browser->TV: %s", msg.data[:400])
                     await tv.send_str(msg.data)
                 elif msg.type == WSMsgType.BINARY:
                     await tv.send_bytes(msg.data)
@@ -172,6 +174,8 @@ async def handle_tv(request: web.Request) -> web.WebSocketResponse:
             async for msg in tv:
                 if msg.type == WSMsgType.TEXT:
                     _capture_token(msg.data)
+                    if log.isEnabledFor(logging.DEBUG):
+                        log.debug("TV->browser: %s", msg.data[:400])
                     if not client.closed:
                         await client.send_str(msg.data)
                 elif msg.type == WSMsgType.BINARY:

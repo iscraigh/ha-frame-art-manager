@@ -2659,6 +2659,14 @@ applySettings(loadSettings());
       } catch (e) {
         failed++;
         console.warn('thumbnail failed', cid, e);
+        if (!window.__famThumbErrReported) {
+          window.__famThumbErrReported = true;
+          fetch(THUMB_BASE + 'thumb-debug', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: String(e && e.message ? e.message : e), content_id: cid }),
+          }).catch(() => {});
+        }
       }
     }
     decorateAllIds();
