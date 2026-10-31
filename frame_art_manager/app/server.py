@@ -256,6 +256,21 @@ def _tv_art(host: str):
     # identity, and a connection presenting another client's token is accepted
     # but its art requests (notably the d2d get_thumbnail) are ignored. Without
     # a token the TV asks once and stores one for this identity.
+    if SYNC_TOKEN_FILE.exists():
+        try:
+            seeded = SYNC_TOKEN_FILE.read_text(encoding="utf-8").strip()
+        except OSError:
+            seeded = ""
+        if seeded and seeded == read_token():
+            log.info(
+                "Discarding the sync token copied from the page client; the TV "
+                "will issue one for this client"
+            )
+            try:
+                SYNC_TOKEN_FILE.unlink()
+            except OSError as ex:
+                log.warning("Could not remove the seeded sync token: %s", ex)
+
     if not SYNC_TOKEN_FILE.exists():
         log.info(
             "No sync token yet: the TV may ask to allow a new client "
