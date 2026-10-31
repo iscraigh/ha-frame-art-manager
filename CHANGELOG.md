@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.10] — 2026-10-31
+
+### Fixed
+
+- The sync connection no longer reuses the page's pairing token. The TV issues
+  tokens per client identity; presenting another client's token is accepted for
+  `get_content_list` but the d2d `get_thumbnail` request is silently ignored.
+  The sync client now starts without a token, the TV asks to allow
+  `SamsungTvRemote` once, and stores its own token in `/data/tv-token-sync.txt`.
+
 ## [1.0.9] — 2026-10-31
 
 ### Changed
@@ -165,6 +175,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.10]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.10
 [1.0.9]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.9
 [1.0.8]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.8
 [1.0.7]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.7

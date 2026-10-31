@@ -252,12 +252,15 @@ async def handle_upload(request: web.Request) -> web.WebSocketResponse:
 def _tv_art(host: str):
     from samsungtvws import SamsungTVWS
 
-    if not SYNC_TOKEN_FILE.exists() and TOKEN_FILE.exists():
-        try:
-            SYNC_TOKEN_FILE.write_text(read_token(), encoding="utf-8")
-            os.chmod(SYNC_TOKEN_FILE, 0o600)
-        except OSError as ex:
-            log.debug("Could not seed the sync token: %s", ex)
+    # Never reuse the app's token here. The TV issues tokens per client
+    # identity, and a connection presenting another client's token is accepted
+    # but its art requests (notably the d2d get_thumbnail) are ignored. Without
+    # a token the TV asks once and stores one for this identity.
+    if not SYNC_TOKEN_FILE.exists():
+        log.info(
+            "No sync token yet: the TV may ask to allow a new client "
+            "(SamsungTvRemote). Accept it once.",
+        )
 
     return SamsungTVWS(
         host=host,
