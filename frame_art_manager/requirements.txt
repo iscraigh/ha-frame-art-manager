@@ -1,0 +1,4 @@
+aiohttp==3.11.18
+samsungtvws==3.0.5
+websockets==15.0.1
+pillow==11.3.0

@@ -1,0 +1,22 @@
+name: Frame Art Manager
+version: "1.0.0"
+slug: frame_art_manager
+description: Crop, upload and manage artwork on a Samsung Frame TV
+url: https://github.com/iscraigh/ha-frame-art-manager
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:image-frame
+panel_title: Frame Art
+panel_admin: false
+options:
+  tv_ip: ""
+  log_level: info
+schema:
+  tv_ip: str
+  log_level: list(debug|info|warning|error)

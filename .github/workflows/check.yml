@@ -1,0 +1,18 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: webapp and add-on copy must match
+        run: |
+          cmp webapp/frame-art-manager.html frame_art_manager/app/static/index.html \
+            || { echo "::error::webapp/frame-art-manager.html and frame_art_manager/app/static/index.html differ - run scripts/sync-webapp.sh"; exit 1; }
+      - name: python syntax
+        run: |
+          python3 -m py_compile frame_art_manager/app/server.py webapp/relay.py webapp/thumb_server.py webapp/sync_thumbs.py
