@@ -39,6 +39,9 @@ OPTIONS_FILE = DATA_DIR / "options.json"
 ART_CHANNEL = "/api/v2/channels/com.samsung.art-app"
 INGRESS_PREFIX = re.compile(r"^/api/hassio_ingress/[^/]+")
 CLIENT_NAME = base64.b64encode(b"FrameArtManager").decode()
+# samsungtvws wants the plain name; it base64-encodes it itself. This must match
+# the app so the pairing token already stored on the TV is accepted.
+TV_CLIENT_NAME = "FrameArtManager"
 MAX_UPLOAD = 64 * 1024 * 1024
 
 log = logging.getLogger("frame_art_manager")
@@ -237,7 +240,12 @@ async def handle_upload(request: web.Request) -> web.WebSocketResponse:
 def _tv_art(host: str):
     from samsungtvws import SamsungTVWS
 
-    return SamsungTVWS(host=host, port=8002, token_file=str(TOKEN_FILE)).art()
+    return SamsungTVWS(
+        host=host,
+        port=8002,
+        token_file=str(TOKEN_FILE),
+        name=TV_CLIENT_NAME,
+    ).art()
 
 
 def sync_thumbs(host: str) -> dict:
@@ -258,15 +266,10 @@ def sync_thumbs(host: str) -> dict:
 
     for cid in ids:
         try:
-            raw = None
-            try:
-                res = art.get_thumbnail_list([cid])
-                if isinstance(res, dict) and res:
-                    raw = list(res.values())[0]
-                elif isinstance(res, (bytes, bytearray)):
-                    raw = res
-            except Exception:  # noqa: BLE001 - older firmware
-                raw = art.get_thumbnail(cid)
+            # Per-item get_thumbnail only. get_thumbnail_list is rejected with
+            # error -1 by several 2022-2025 firmwares ("unsupported request"),
+            # and one failed batch call must not cost the whole library.
+            raw = art.get_thumbnail(cid)
             if not raw:
                 lines.append(f"empty thumbnail for {cid}")
                 continue

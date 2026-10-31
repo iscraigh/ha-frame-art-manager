@@ -1542,6 +1542,13 @@ class FrameTVArt {
       if (requestName === 'send_image' && String(code) === '-1') {
         detail = 'TV error -1 (send_image). This often means TV art storage is full, or this firmware rejects current upload method.';
       }
+      // The add-on fetches thumbnails on its own art connection and the TV
+      // broadcasts that error to every connected client. This page never
+      // issues thumbnail requests, so do not alarm the user with them.
+      if (requestName === 'get_thumbnail_list' || requestName === 'get_thumbnail') {
+        console.warn('Ignoring TV error for an add-on side request:', detail);
+        return;
+      }
       const err = new Error(detail);
       this.onLog('✗ ' + err.message, 'err');
       Object.values(this._pending).forEach(p => p.reject(err));
@@ -2606,7 +2613,9 @@ applySettings(loadSettings());
         syncBtn.textContent = '⚠ 0 Thumbnails Found';
       }
     } catch (err) {
-      alert('Could not reach thumb_server.py on port 8766. Run ./launch.sh in your terminal.');
+      alert(FAM_ADDON
+        ? 'Could not reach the add-on thumbnail endpoint. Check the add-on log.'
+        : 'Could not reach thumb_server.py on port 8766. Run ./launch.sh in your terminal.');
       syncBtn.textContent = origText;
     } finally {
       setTimeout(() => {

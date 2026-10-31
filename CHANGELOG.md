@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-10-31
+
+### Fixed
+
+- Thumbnail sync failed on firmwares that reject `get_thumbnail_list` with
+  `TV error -1`. The add-on now fetches each thumbnail with `get_thumbnail`
+  (per item), so one unsupported batch request can no longer empty the library.
+- Thumbnail sync and "show on TV" now use the same client name (`FrameArtManager`)
+  as the app, so the pairing token already stored on the TV is reused instead of
+  opening a second, unauthorised client identity.
+- The page no longer shows a scary error box for TV errors that belong to the
+  add-on's own thumbnail requests — the TV broadcasts those to every connected
+  art client. They are logged to the console instead.
+- The sync failure message in add-on mode no longer tells you to run `launch.sh`.
+
 ## [1.0.0] — 2026-10-31
 
 First packaged release. The application itself is based on
@@ -48,4 +63,5 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.1]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.1
 [1.0.0]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.0
