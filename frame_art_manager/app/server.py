@@ -301,12 +301,35 @@ def sync_thumbs(host: str) -> dict:
     lines = [f"Found {len(ids)} custom photos on the TV."]
     thumbs: dict[str, str] = {}
 
-    for cid in ids:
+    # Batch first: get_thumbnail_list is the request samsungtv_smart and the
+    # standalone sync_thumbs.py use successfully on Frames whose single
+    # get_thumbnail never answers. One call can return every image.
+    if ids:
         try:
-            # Per-item get_thumbnail only. get_thumbnail_list is rejected with
-            # error -1 by several 2022-2025 firmwares ("unsupported request"),
-            # and one failed batch call must not cost the whole library.
-            raw = art.get_thumbnail(cid)
+            batch = art.get_thumbnail_list(list(ids))
+        except Exception as ex:  # noqa: BLE001 - fall through to per item
+            batch = {}
+            lines.append(f"batch get_thumbnail_list failed: {ex}")
+        for filename, data in (batch or {}).items():
+            cid = str(filename).rsplit(".", 1)[0]
+            try:
+                thumbs[cid] = thumbnail_data_url(data)
+                lines.append(f"pulled {cid} (batch)")
+            except Exception as ex:  # noqa: BLE001
+                lines.append(f"failed {cid} (batch): {ex}")
+        if thumbs:
+            log.info("Batch thumbnail fetch returned %s images", len(thumbs))
+
+    for cid in ids:
+        if cid in thumbs:
+            continue
+        try:
+            # Per item: prefer the list request, then the single one.
+            try:
+                batch = art.get_thumbnail_list([cid])
+                raw = next(iter(batch.values())) if batch else None
+            except Exception:  # noqa: BLE001 - try the single request
+                raw = art.get_thumbnail(cid)
             if not raw:
                 lines.append(f"empty thumbnail for {cid}")
                 continue
@@ -555,6 +578,9 @@ def main() -> None:
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
         stream=sys.stdout,
     )
+    # samsungtvws logs every art message at DEBUG, content lists included.
+    # Keep our own debug log readable.
+    logging.getLogger("samsungtvws").setLevel(logging.INFO)
     if not TV_IP:
         log.warning("Option 'tv_ip' is empty — set it in the add-on configuration")
 
