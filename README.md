@@ -118,6 +118,7 @@ scripts/sync-webapp.sh          # copy webapp/ -> add-on static/
 ```
 
 CI fails if the two copies differ, and compiles every Python file.
+Workflow, versioning and release steps: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Add-on endpoints
 
