@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.8] — 2026-10-31
+
+### Changed
+
+- `get_thumbnail` now tries the art app's own instance id (taken from the `from`
+  field of its replies) before falling back to `host`. Newer firmware may only
+  serve the d2d thumbnail request when it is addressed to the app instance;
+  older firmware expects `host`. Each attempt is 8 s, so a failure is still
+  bounded.
+
 ## [1.0.7] — 2026-10-31
 
 ### Fixed
@@ -142,6 +152,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.8]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.8
 [1.0.7]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.7
 [1.0.6]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.6
 [1.0.5]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.5

@@ -1464,10 +1464,10 @@ class FrameTVArt {
     });
   }
 
-  _emit(data) {
+  _emit(data, to) {
     this.ws.send(JSON.stringify({
       method: 'ms.channel.emit',
-      params: { event: 'art_app_request', to: 'host', data: JSON.stringify(data) }
+      params: { event: 'art_app_request', to: to || 'host', data: JSON.stringify(data) }
     }));
   }
 
@@ -1518,6 +1518,7 @@ class FrameTVArt {
 
   _handleTextMsg(msg) {
     if (msg.event !== 'ms.channel.emit' && msg.event !== 'd2d_service_message') return;
+    if (msg.from) this.artAppId = msg.from;
 
     let data = msg.data;
     if (typeof data === 'string') {
@@ -1592,12 +1593,7 @@ class FrameTVArt {
     return this._waitForAny(['content_list', reqId]);
   }
 
-  async getThumbnail(contentId) {
-    // The TV serves one art client at a time, so thumbnails are requested on
-    // this connection. The reply carries conn_info for the raw TCP transfer,
-    // which the add-on performs (a browser cannot open that socket).
-    // conn_info.id must be a UUID: this firmware silently ignores the request
-    // when it is an arbitrary string (samsungtvws sends uuid4 there too).
+  async _getThumbnailOnce(contentId, target, timeoutMs) {
     const uid = () => (globalThis.crypto?.randomUUID?.() ||
       'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const r = Math.random() * 16 | 0;
@@ -1615,8 +1611,22 @@ class FrameTVArt {
         connection_id: Math.floor(Math.random() * 4 * 1024 * 1024 * 1024),
         id: connId,
       },
-    });
-    return this._waitForAny([reqId, 'get_thumbnail'], 15000);
+    }, target);
+    return this._waitForAny([reqId, 'get_thumbnail'], timeoutMs);
+  }
+
+  async getThumbnail(contentId) {
+    // Thumbnails travel over this connection (the TV serves one art client at a
+    // time) and the reply carries conn_info for a raw TCP transfer the add-on
+    // performs. Two addressing modes are tried: newer firmware tags its replies
+    // with the art app instance id and may only answer when addressed to it,
+    // older firmware expects "host".
+    try {
+      return await this._getThumbnailOnce(contentId, this.artAppId, 8000);
+    } catch (e) {
+      if (!this.artAppId) throw e;
+      return this._getThumbnailOnce(contentId, 'host', 8000);
+    }
   }
 
   async getSamsungList() {
