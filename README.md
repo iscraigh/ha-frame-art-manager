@@ -1,52 +1,109 @@
-# Frame Art Manager — Home Assistant add-on + standalone web app
+# Frame Art Manager
 
-Crop, pair, matte and upload artwork to a Samsung Frame TV, then browse the TV's
-library with thumbnails and run a browser-side slideshow.
+Crop, pair, matte and upload artwork to a **Samsung Frame TV**, then browse what
+is already on it with thumbnails and run a slideshow — from the Home Assistant
+sidebar, or from a plain HTML file.
 
-This repository packages the same application two ways:
+Built on [boysbytes/frame-art-manager](https://github.com/boysbytes/frame-art-manager),
+packaged for Home Assistant and extended with a firmware shim, an interactive 4K
+cropper, a thumbnail library and a browser-side slideshow.
 
-| Delivery | Where | How it reaches the TV |
+Release notes live in [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## Two ways to run it
+
+| | **Home Assistant add-on** | **Standalone web app** |
 |---|---|---|
-| **Home Assistant add-on** | `frame_art_manager/` | The add-on talks to the TV. The page is served through HA Ingress, so it works remotely and needs no certificate trust step. The pairing token lives in the add-on's `/data`. |
-| **Standalone web app** | `webapp/` | Your browser talks to the TV directly; `relay.py` bridges the raw image upload and `thumb_server.py` serves the thumbnail cache. |
+| Where | `frame_art_manager/` | `webapp/` |
+| Who talks to the TV | the add-on | your browser + local helpers |
+| Access | HA Ingress / sidebar panel | open the HTML file directly |
+| Remote access | yes, through your HA URL | no, LAN only |
+| Certificate step | none | trust `https://TV_IP:8002` once |
+| Pairing token | `/data/tv-token.txt` in the add-on | `tv-token.txt` next to the HTML |
 
-The HTML is one file and knows which mode it is in: opened from disk it uses
-`localhost:8765` / `127.0.0.1:8766`; served by the add-on it routes everything
-through same-origin endpoints.
+The app is one HTML file that detects which mode it is in: served by the add-on
+it calls same-origin endpoints; opened from disk it uses `localhost:8765` /
+`127.0.0.1:8766` and connects to the TV directly.
 
-## Install the add-on
+---
 
-1. In Home Assistant: **Settings → Add-ons → Add-on Store → ⋮ → Repositories**.
-2. Add `https://github.com/iscraigh/ha-frame-art-manager`.
-3. Install **Frame Art Manager**, then open **Configuration** and set:
-   - `tv_ip` — the TV's LAN address (e.g. `10.0.1.149`)
-   - `log_level` — `info` by default
-4. Start it. The sidebar entry **Frame Art** opens the app.
+## Features
 
-The first time the app connects, the TV asks to allow the connection — accept it
-on the TV. The add-on stores the returned token in `/data/tv-token.txt`, so it
-only asks once.
+- Drag-and-drop images, auto-resized and cropped to the Frame's 3840 × 2160 canvas
+- Portrait pairing (manual or automatic) with a generated diptych matte
+- Interactive 4K cropper: aspect ratios, matte padding, zoom, rotate
+- Matte style/colour, slideshow interval, auto-enter Art Mode after upload
+- TV Library with cached thumbnails, "show on TV", and delete
+- Browser-side slideshow with selectable playlists
+- 2024/2025 firmware compatibility shim for commands newer Frames reject
+  (`set_slideshow_status`, `change_matte`, `set_auto_rotation_status`)
 
-## Run the standalone app
+---
+
+## Install as a Home Assistant add-on
+
+1. **Settings → Add-ons → Add-on Store → ⋮ → Repositories**
+2. Add this repository:
+
+   ```
+   https://github.com/iscraigh/ha-frame-art-manager
+   ```
+
+3. Install **Frame Art Manager** and open **Configuration**:
+
+   ```yaml
+   tv_ip: 10.0.1.149   # the TV's LAN address — required
+   log_level: info     # debug | info | warning | error
+   ```
+
+4. **Start** the add-on. A **Frame Art** entry appears in the sidebar.
+
+### First connection
+
+1. The TV must be on and on the same network as Home Assistant.
+2. Open **Frame Art → TV Library → Connect**.
+3. Accept the pairing prompt on the TV. The add-on stores the token in
+   `/data/tv-token.txt` (mode 0600); later connections are silent.
+
+The add-on connects to the TV itself, so there is no certificate to trust and no
+`relay.py` or `thumb_server.py` to run.
+
+---
+
+## Run the standalone web app
 
 ```bash
 cd webapp
 python3 -m venv .venv
 . .venv/bin/activate
 pip install websockets samsungtvws pillow
-./launch.sh          # starts relay.py + thumb_server.py and opens the page
+./launch.sh
 ```
 
-Then enter the TV IP in the app, trust the TV certificate once
-(`https://TV_IP:8002`), and click Connect.
+`launch.sh` starts both helpers and opens the page:
 
-## Layout
+- `relay.py` — `ws://localhost:8765`, forwards the two-phase image upload over raw
+  TCP (browsers cannot open raw sockets)
+- `thumb_server.py` — `http://127.0.0.1:8766`, provides `/sync` (download artwork
+  thumbnails) and `/show` (display one artwork on the TV)
+
+Then: enter the TV IP, click **Trust certificate** and accept the warning at
+`https://TV_IP:8002`, click **Connect**, and allow the pairing prompt on the TV.
+
+`thumbs_cache.js` is generated by `sync_thumbs.py`; `tv-token.txt` is a secret.
+Neither belongs in git.
+
+---
+
+## Repository layout
 
 ```
 repository.yaml                 # makes this repo an HA add-on repository
 frame_art_manager/              # the add-on
-  config.yaml  Dockerfile  requirements.txt
-  app/server.py                 # Ingress UI + TV proxying + thumbnails
+  config.yaml  Dockerfile  requirements.txt  DOCS.md  icon.png  logo.png
+  app/server.py                 # Ingress UI + TV proxy + thumbnails
   app/static/index.html         # synced copy of the web app (CI-checked)
 webapp/                         # standalone app
   frame-art-manager.html        # canonical source
@@ -54,14 +111,66 @@ webapp/                         # standalone app
 scripts/sync-webapp.sh          # copy webapp/ -> add-on static/
 ```
 
-`webapp/frame-art-manager.html` is the canonical source. After editing it run
-`scripts/sync-webapp.sh`; CI fails if the two copies differ.
+`webapp/frame-art-manager.html` is the canonical source. After editing it run:
 
-## Credits and licence
+```bash
+./scripts/sync-webapp.sh
+```
 
-Based on [boysbytes/frame-art-manager](https://github.com/boysbytes/frame-art-manager)
-(MIT, © Louis Yong), with local additions: the 2024/2025 firmware compatibility
-shim, the interactive 4K cropper, the TV-library thumbnail cache and the
-browser-side slideshow. The TV protocol work derives from
-[Nick Waterton's samsung-tv-ws-api](https://github.com/NickWaterton/samsung-tv-ws-api).
-Released under the MIT licence — see `LICENSE`.
+CI fails if the two copies differ, and compiles every Python file.
+
+### Add-on endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `/` | the application (served through HA Ingress) |
+| `WS /tv` | proxy to `wss://TV:8002/api/v2/channels/com.samsung.art-app` |
+| `WS /upload` | raw TCP image-frame relay (replaces `relay.py`) |
+| `/sync?ip=` | download thumbnails into `/data/thumbs_cache.js` |
+| `/show?id=` | display one artwork on the TV |
+| `/health` | `tv_ip_configured`, `art_token`, `thumbs_cache` |
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| `No TV IP configured` in the log | `tv_ip` option is empty |
+| Connect times out | TV off/asleep, wrong IP, or a VLAN between HA and the TV (Samsung refuses cross-subnet websockets) |
+| Pairing prompt repeats | TV setting: **Device Connection Manager → Access Notification → First time only**, and clear stale entries in **Device List** |
+| Library connects, uploads fail | the raw upload port (8002) is blocked, or the TV's art app is wedged |
+| Art Mode stops responding | the TV's `org.tizen.art-app` has wedged — restart it (in HA: `samsungtv_smart.art_restart_app`, or power-cycle the TV) |
+| Commands "succeed" but nothing happens on a 2024/2025 Frame | expected for the shimmed commands; see the firmware shim note above |
+
+`/health` tells you whether the TV IP and pairing token are present before you
+blame the UI.
+
+---
+
+## Credits
+
+This project stands on other people's work; please support the upstream projects.
+
+- **[boysbytes/frame-art-manager](https://github.com/boysbytes/frame-art-manager)** —
+  Louis Yong. The original application: single-file UI, image processing,
+  Samsung art-app protocol client, TV library and settings. This repository
+  packages it for Home Assistant and adds the features listed under *Features*.
+- **[NickWaterton/samsung-tv-ws-api](https://github.com/NickWaterton/samsung-tv-ws-api)** —
+  Nick Waterton. The `com.samsung.art-app` websocket protocol documentation and
+  cross-firmware fixes (2021–2024 Frames) that both the app and the add-on's
+  thumbnail code rely on.
+- **[xchwarze/samsung-tv-ws-api](https://github.com/xchwarze/samsung-tv-ws-api)**
+  (`art-updates` branch) — original art-app API research.
+- **mattehouse-frame-studio** — the diptych matte texture generation adapted in
+  the browser code.
+- **[JSZip](https://stuk.github.io/jszip/)** — ZIP downloads in the browser.
+
+Home Assistant add-on packaging, the Ingress/TV proxy server, the thumbnail
+sync endpoint and the environment adapter in the HTML are additions in this
+repository.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE). The upstream application and this packaging are
+both MIT; the copyright notice of the original author is preserved.
