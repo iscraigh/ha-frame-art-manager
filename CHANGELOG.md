@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.12] — 2026-10-31
+
+### Fixed
+
+- Thumbnail sync uses `get_thumbnail_list` again — the batch request that
+  `samsungtv_smart` and the standalone `sync_thumbs.py` use successfully on
+  Frames whose single `get_thumbnail` never answers. It fetches every image in
+  one call, then falls back to per-item `get_thumbnail_list`, and only then to
+  `get_thumbnail`.
+- `samsungtvws`'s own DEBUG logging is pinned to INFO so the add-on log is no
+  longer flooded with full content lists.
+
+## [1.0.11] — 2026-10-31
+
+### Fixed
+
+- The sync token copied from the page client by 1.0.3-1.0.9 is discarded, so the
+  TV issues one for the sync client itself.
+
 ## [1.0.10] — 2026-10-31
 
 ### Fixed
@@ -175,6 +194,8 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.12]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.12
+[1.0.11]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.11
 [1.0.10]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.10
 [1.0.9]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.9
 [1.0.8]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.8
