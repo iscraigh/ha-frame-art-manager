@@ -33,16 +33,19 @@ APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 DATA_DIR = Path(os.environ.get("FAM_DATA", "/data"))
 TOKEN_FILE = DATA_DIR / "tv-token.txt"
+# samsungtvws opens its own art connection; it needs a client identity of its
+# own, because two sockets using the same name make the TV route the replies to
+# one of them and the other waits forever. Separate token file, seeded from the
+# proxy's token so an existing pairing is reused where the TV allows it.
+SYNC_TOKEN_FILE = DATA_DIR / "tv-token-sync.txt"
 THUMBS_FILE = DATA_DIR / "thumbs_cache.js"
 OPTIONS_FILE = DATA_DIR / "options.json"
 
 ART_CHANNEL = "/api/v2/channels/com.samsung.art-app"
 INGRESS_PREFIX = re.compile(r"^/api/hassio_ingress/[^/]+")
 CLIENT_NAME = base64.b64encode(b"FrameArtManager").decode()
-# samsungtvws wants the plain name; it base64-encodes it itself. This must match
-# the app so the pairing token already stored on the TV is accepted.
-TV_CLIENT_NAME = "FrameArtManager"
 MAX_UPLOAD = 64 * 1024 * 1024
+SYNC_TIMEOUT = 120
 
 log = logging.getLogger("frame_art_manager")
 
@@ -240,11 +243,18 @@ async def handle_upload(request: web.Request) -> web.WebSocketResponse:
 def _tv_art(host: str):
     from samsungtvws import SamsungTVWS
 
+    if not SYNC_TOKEN_FILE.exists() and TOKEN_FILE.exists():
+        try:
+            SYNC_TOKEN_FILE.write_text(read_token(), encoding="utf-8")
+            os.chmod(SYNC_TOKEN_FILE, 0o600)
+        except OSError as ex:
+            log.debug("Could not seed the sync token: %s", ex)
+
     return SamsungTVWS(
         host=host,
         port=8002,
-        token_file=str(TOKEN_FILE),
-        name=TV_CLIENT_NAME,
+        token_file=str(SYNC_TOKEN_FILE),
+        timeout=15,
     ).art()
 
 
@@ -338,9 +348,27 @@ async def handle_sync(request: web.Request) -> web.Response:
     try:
         host = tv_host(request.query.get("ip", ""))
         log.info("Thumbnail sync requested for %s", host)
-        result = await asyncio.to_thread(sync_thumbs, host)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(sync_thumbs, host), timeout=SYNC_TIMEOUT
+        )
         log.info("Thumbnail sync finished: %s thumbnails", result.get("count", 0))
         return web.json_response(result)
+    except asyncio.TimeoutError:
+        log.warning(
+            "Thumbnail sync timed out after %ss — the TV did not answer the art "
+            "channel. If an allow prompt is showing on the TV, accept it.",
+            SYNC_TIMEOUT,
+        )
+        return web.json_response(
+            {
+                "ok": False,
+                "error": (
+                    "The TV did not answer the art channel in time. If it is showing "
+                    "an allow/authorise prompt, accept it and retry."
+                ),
+            },
+            status=504,
+        )
     except Exception as ex:  # noqa: BLE001 - the page shows the message
         log.warning("Thumbnail sync failed: %s", ex)
         return web.json_response({"ok": False, "error": str(ex)}, status=502)

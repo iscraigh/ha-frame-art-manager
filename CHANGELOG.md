@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] — 2026-10-31
+
+### Fixed
+
+- Thumbnail sync hung indefinitely after "Thumbnail sync requested". The
+  server-side samsungtvws connection was opening with the same client name as
+  the page's proxied connection, so the TV routed the replies to one socket and
+  the other waited forever. It now connects under its own identity with its own
+  token file (`/data/tv-token-sync.txt`, seeded from the existing pairing).
+- The sync request has a hard 120 s ceiling; on timeout it returns a clear
+  message ("accept the allow prompt on the TV and retry") instead of hanging.
+- Logs distinguish requested / finished / timed out.
+
 ## [1.0.2] — 2026-10-31
 
 ### Fixed
@@ -78,6 +91,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.3]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.3
 [1.0.2]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.2
 [1.0.1]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.1
 [1.0.0]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.0
