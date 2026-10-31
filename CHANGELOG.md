@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-10-31
+
+### Fixed
+
+- The page now receives the exact Ingress prefix from Home Assistant
+  (`X-Ingress-Path`) instead of deriving it from `location.pathname`, so sync and
+  "show on TV" always address the add-on rather than a sibling HA path.
+- The TV address is filled in as soon as the adapter runs and the thumbnail
+  button uses the configured `tv_ip` directly; it can no longer fall through to
+  an IP prompt whose cancellation silently does nothing.
+- Thumbnail sync logs a start line and the final count at `info`, so a request
+  that never arrives is distinguishable from one that runs and finds nothing.
+- Removed a deprecated aiohttp websocket timeout argument that printed a
+  `DeprecationWarning` on every start.
+
 ## [1.0.1] — 2026-10-31
 
 ### Fixed
@@ -63,5 +78,6 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.2]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.2
 [1.0.1]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.1
 [1.0.0]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.0

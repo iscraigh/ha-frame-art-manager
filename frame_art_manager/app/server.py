@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
-from aiohttp import ClientSession, ClientTimeout, WSMsgType, web
+from aiohttp import ClientSession, ClientWSTimeout, WSMsgType, web
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
@@ -117,7 +117,7 @@ async def _open_art_channel(session: ClientSession):
                 ssl=insecure_ssl() if scheme == "wss" else None,
                 heartbeat=30,
                 max_msg_size=0,
-                timeout=ClientTimeout(total=15),
+                timeout=ClientWSTimeout(ws_close=10),
             )
             log.info("Art channel connected over %s://%s:%s", scheme, host, port)
             return ws
@@ -309,14 +309,20 @@ def show_on_tv(host: str, content_id: str) -> str:
 # ── HTTP ─────────────────────────────────────────────────────────────────
 
 
-def inject_config(html: str) -> str:
-    cfg = json.dumps({"tvIp": TV_IP})
+def inject_config(html: str, ingress_path: str = "") -> str:
+    base = (ingress_path.rstrip("/") + "/") if ingress_path else "/"
+    cfg = json.dumps({"tvIp": TV_IP, "base": base})
     return html.replace("</head>", f"<script>window.FAM_ADDON = {cfg};</script>\n</head>", 1)
 
 
-async def serve_index(_request: web.Request) -> web.Response:
+async def serve_index(request: web.Request) -> web.Response:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    return web.Response(text=inject_config(html), content_type="text/html")
+    # Home Assistant tells the add-on which ingress prefix it used; handing that
+    # to the page removes any guessing from relative URL construction.
+    return web.Response(
+        text=inject_config(html, request.headers.get("X-Ingress-Path", "")),
+        content_type="text/html",
+    )
 
 
 async def serve_thumbs(_request: web.Request) -> web.Response:
@@ -331,7 +337,9 @@ async def serve_thumbs(_request: web.Request) -> web.Response:
 async def handle_sync(request: web.Request) -> web.Response:
     try:
         host = tv_host(request.query.get("ip", ""))
+        log.info("Thumbnail sync requested for %s", host)
         result = await asyncio.to_thread(sync_thumbs, host)
+        log.info("Thumbnail sync finished: %s thumbnails", result.get("count", 0))
         return web.json_response(result)
     except Exception as ex:  # noqa: BLE001 - the page shows the message
         log.warning("Thumbnail sync failed: %s", ex)

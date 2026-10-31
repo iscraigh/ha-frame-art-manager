@@ -539,10 +539,16 @@ hr{border:none;border-top:1px solid var(--border);margin:22px 0}
 const FAM_ADDON = window.FAM_ADDON || null;
 const FAM_BASE_PATH = (() => {
   if (!FAM_ADDON) return '';
+  // The add-on injects the exact ingress prefix Home Assistant used.
+  if (FAM_ADDON.base) return FAM_ADDON.base;
   const p = window.location.pathname;
   const i = p.lastIndexOf('/');
   return i >= 0 ? p.slice(0, i + 1) : '/';
 })();
+if (FAM_ADDON && FAM_ADDON.tvIp) {
+  const _ipField = document.getElementById('tv-ip-input');
+  if (_ipField) _ipField.value = FAM_ADDON.tvIp;
+}
 const famUrl = path => FAM_BASE_PATH + path;
 const famWsUrl = path =>
   (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + famUrl(path);
@@ -2579,6 +2585,7 @@ applySettings(loadSettings());
   // 3. Sync button handler
   const syncBtn = document.getElementById('fam-sync-thumbs-btn');
   function findTvIp() {
+    if (FAM_ADDON && FAM_ADDON.tvIp) return FAM_ADDON.tvIp;
     const inputs = document.querySelectorAll('input');
     for (const inp of inputs) {
       const v = (inp.value || '').trim();
