@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.5] — 2026-10-31
+
+### Added
+
+- Diagnostic for thumbnail replies that arrive without `conn_info`: the page
+  reports the raw reply to `POST /thumb-debug`, the add-on logs it (truncated)
+  as `get_thumbnail reply without conn_info: ...`, and the first failure is also
+  shown in the page so the shape is visible without devtools.
+
+### Changed
+
+- A TV error for `get_thumbnail`/`get_thumbnail_list` now rejects the matching
+  pending request instead of leaving it to hit the 15 s timeout.
+- `conn_info` is accepted at the top level or nested under `data`, as a string or
+  an object.
+
 ## [1.0.4] — 2026-10-31
 
 ### Fixed
@@ -106,6 +122,7 @@ had only existed as loose files.
 - Sequential uploads no longer contaminate each other's `image_added` handlers.
 - UI reflects a closed websocket connection.
 
+[1.0.5]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.5
 [1.0.4]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.4
 [1.0.3]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.3
 [1.0.2]: https://github.com/iscraigh/ha-frame-art-manager/releases/tag/v1.0.2

@@ -370,6 +370,16 @@ def thumbnail_data_url(raw: bytes) -> str:
     return "data:image/jpeg;base64," + b64.b64encode(buf.getvalue()).decode("ascii")
 
 
+async def handle_thumb_debug(request: web.Request) -> web.Response:
+    """Record one raw get_thumbnail reply so an unexpected shape is visible."""
+    try:
+        body = await request.json()
+        log.warning("get_thumbnail reply without conn_info: %s", json.dumps(body)[:1200])
+    except Exception as ex:  # noqa: BLE001
+        log.warning("thumb-debug could not be read: %s", ex)
+    return web.json_response({"ok": True})
+
+
 async def handle_thumb(request: web.Request) -> web.Response:
     try:
         info = await request.json()
@@ -490,6 +500,8 @@ async def handle(request: web.Request) -> web.StreamResponse:
         return await handle_sync(request)
     if segment == "thumb" and request.method == "POST":
         return await handle_thumb(request)
+    if segment == "thumb-debug" and request.method == "POST":
+        return await handle_thumb_debug(request)
     if segment == "show":
         return await handle_show(request)
     if segment == "health":

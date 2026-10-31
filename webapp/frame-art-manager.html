@@ -1548,14 +1548,19 @@ class FrameTVArt {
       if (requestName === 'send_image' && String(code) === '-1') {
         detail = 'TV error -1 (send_image). This often means TV art storage is full, or this firmware rejects current upload method.';
       }
-      // The add-on fetches thumbnails on its own art connection and the TV
-      // broadcasts that error to every connected client. This page never
-      // issues thumbnail requests, so do not alarm the user with them.
+      const err = new Error(detail);
+      // Thumbnail requests are made by this page only while syncing. Settle the
+      // matching wait with the error (rather than leaving it to time out) and do
+      // not raise an alert for the batch request some firmwares reject.
       if (requestName === 'get_thumbnail_list' || requestName === 'get_thumbnail') {
-        console.warn('Ignoring TV error for an add-on side request:', detail);
+        const rid = data?.request_id || data?.id;
+        if (rid && this._pending[rid]) {
+          this._pending[rid].reject(err);
+          delete this._pending[rid];
+        }
+        console.warn('TV rejected a thumbnail request:', detail);
         return;
       }
-      const err = new Error(detail);
       this.onLog('✗ ' + err.message, 'err');
       Object.values(this._pending).forEach(p => p.reject(err));
       this._pending = {};
@@ -2622,9 +2627,27 @@ applySettings(loadSettings());
       syncBtn.textContent = `⏳ ${done + failed}/${ids.length}`;
       try {
         const r = await state.tv.getThumbnail(cid);
-        let info = r?.conn_info;
-        if (typeof info === 'string') info = JSON.parse(info);
-        if (!info) { failed++; continue; }
+        let info = r?.conn_info ?? r?.data?.conn_info ?? null;
+        if (typeof info === 'string') {
+          try { info = JSON.parse(info); } catch { info = null; }
+        }
+        if (!info) {
+          failed++;
+          if (!window.__famThumbReported) {
+            window.__famThumbReported = true;
+            console.warn('get_thumbnail reply without conn_info:', r);
+            fetch(THUMB_BASE + 'thumb-debug', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reply: r, content_id: cid }),
+            }).catch(() => {});
+            if (done + failed === 1) {
+              alert('The TV answered a thumbnail request without connection details.\n\n' +
+                JSON.stringify(r).slice(0, 500));
+            }
+          }
+          continue;
+        }
         const resp = await fetch(THUMB_BASE + 'thumb', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
